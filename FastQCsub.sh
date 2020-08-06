@@ -18,7 +18,7 @@ echo
 module load FastQC/0.11.8-Java-1.8.0_144
 
 
-time fastqc -f fastq *.fq.gz
+time fastqc -f fastq *.fastq.gz
 
 
 
