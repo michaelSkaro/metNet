@@ -58,6 +58,8 @@ def parse_cli(args):
                           help='Path to CUP pretrained model.')
     required.add_argument('-c', '--classes_dir', required=True,
                           help='Path to classifications visualization data.')
+    required.add_argument('-s', '--state', required=True,
+                          help='Letting the model know if we have to analyze the data or just feature normalize')
     
     return vars(parser.parse_args(args))
 
@@ -105,13 +107,13 @@ def main(cli_args=sys.argv[1:]):
     output_dir_path = paths[1]
     model_path = paths[2]
     classification_dir_path = paths[3]
+    state = args['state']
 
     for file_name in os.listdir(input_dir_path):
-        multilabel_file_name = file_name[:-4]
-        print(multilabel_file_name)
-        create_oversampled_datasets(binary_dir_path, oversampled_dir_path, 
-                                    multilabel_file_name)
-        data_ingestion(input_dir_path)
+        if state == "Normalized":
+		data_ingestion(input_dir_path)
+	if state == "raw":
+		analyze_methylation_data(input_dir_path)
 
     print('Feature Selection')
     feature_selection(important_features_dir_path, oversampled_dir_path,
