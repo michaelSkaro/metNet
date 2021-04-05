@@ -12,8 +12,8 @@ analyze the data. The features will be filtered for maximally informative subset
 differentiating  tumor class.
 
 **Docker Installation**
-####Not done:
-The docker image for this project can be pulled from the online Docker Hub [repository](https://hub.docker.com/r/mskaro1/mot) 
+#### Not active yet TODO:
+The docker image for this project can be pulled from the online Docker Hub [repository](https://hub.docker.com/r/mskaro1/metNet) 
 or can be built using the Dockerfile included in the base directory of this project.
 To pull the image from the Docker Hub repo, run the following command:
 ```
