@@ -48,11 +48,6 @@ Note: This command should be run in the base directory of the project, and `<out
 - classification-results: Directory contains the classification results of our Random Forest model on the feature-selected datasets.
 
 ## General Usage:
-
-=====
-Usage
-=====
-Run usage
 ---------
 * metNet, when run without the :code:
 
