@@ -1,6 +1,4 @@
 #CUP analysis
-setwd("/mnt/storage/mskaro1/CUP/GDCdata")
-
 library(TCGAbiolinks)
 
 # Download and prepare 450k methylation beta values for analysis
