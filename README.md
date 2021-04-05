@@ -80,5 +80,6 @@ docker run --rm -it --entrypoint="" mskaro1/metNet bash
 ```
 ## Reviewing:
 
-Docker image available now ! Check out our wiki for implementation actions!
+Docker image in prep ! 
+TODO: [] Check out our wiki for implementation actions!
 Thanks!
