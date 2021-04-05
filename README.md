@@ -51,7 +51,6 @@ Note: This command should be run in the base directory of the project, and `<out
 ---------
 * metNet, when run without the :code:
 
-.. code:: text
 
     usage: metNet.py -i INPUT -o OUTPUT -m MODEL -c classifications
     Meta-pipeline to identify transposable element insertions using next
