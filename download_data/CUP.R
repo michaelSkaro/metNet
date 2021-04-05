@@ -7,8 +7,11 @@ library(TCGAbiolinks)
 
 #projects <- TCGAbiolinks:::getGDCprojects()$project_id
 #projects <- projects[grepl('^TCGA',projects,perl=T)]
-projects <- c("TCGA-ACC","TCGA-COAD","TCGA-GBM","TCGA-HNSC","TCGA-KICH",
-              "TCGA-KIRC","TCGA-KIRP","TCGA-LGG","TCGA-LUAD","TCGA-LUSC","TCGA-PCPG")
+projects <- c("TCGA-ACC","TCGA-BLCA","TCGA-BRCA","TCGA-CESC","TCGA-CHOL","TCGA-COAD","TCGA-READ",
+              "TCGA-DLBC","TCGA-ESCA","TCGA-GBM","TCGA-HNSC","TCGA-KICH","TCGA-KIRC",
+              "TCGA-KIRP","TCGA-LAML","TCGA-LGG","TCGA-LIHC","TCGA-LUAD","TCGA-LUSC",
+              "TCGA-MESO","TCGA-PAAD","TCGA-PCPG","TCGA-PRAD","TCGA-SARC","TCGA-SKCM",
+              "TCGA-STAD","TCGA-TGCT","TCGA-THCA","TCGA-THYM","TCGA-UCEC","TCGA-UVM")
 match.file.cases.all <- NULL
 for(proj in projects){
   print(proj)
