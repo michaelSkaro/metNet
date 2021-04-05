@@ -51,24 +51,24 @@ Note: This command should be run in the base directory of the project, and `<out
 ---------
 * metNet, when run without the :code:
 
+```
+usage: metNet.py -i INPUT -o OUTPUT -m MODEL -c classifications
+Meta-pipeline to identify transposable element insertions using next
+generation sequencing data
 
-    usage: metNet.py -i INPUT -o OUTPUT -m MODEL -c classifications
-    Meta-pipeline to identify transposable element insertions using next
-    generation sequencing data
-
-    required arguments:
-    -i INPUT, --input
-    Path to input directory containing the methylation data
-    -o OUTPUT, --output
-    Path to output directory to save results
-    -m MODEL, --model
-    Path to CUP pretrained model
-    -c CLASS_DIR, --classifications
-    Path to classifications visualization data.
-    -s STATE --state
-    raw or normalized Binary variable indicating if the data in the input directory is raw idat 
-    data or normalized beta values. 
-                                 
+required arguments:
+-i INPUT, --input
+Path to input directory containing the methylation data
+-o OUTPUT, --output
+Path to output directory to save results
+-m MODEL, --model
+Path to CUP pretrained model
+-c CLASS_DIR, --classifications
+Path to classifications visualization data.
+-s STATE --state
+raw or normalized Binary variable indicating if the data in the input directory is raw idat 
+data or normalized beta values. 
+```                              
     
 The `-h` flag to understand all available options. 
 
