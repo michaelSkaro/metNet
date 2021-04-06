@@ -52,8 +52,7 @@ Note: This command should be run in the base directory of the project, and `<out
 
 ```
 usage: metNet.py -i INPUT -o OUTPUT -m MODEL -c classifications
-Meta-pipeline to identify transposable element insertions using next
-generation sequencing data
+ML pipeline to classify tissue organ of origin for cancers of unknown primary using illumina 450k and minfinum epic array data
 
 required arguments:
           -i INPUT, --input
