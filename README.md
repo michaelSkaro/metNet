@@ -37,7 +37,6 @@ Note: This command should be run in the base directory of the project, and `<out
 ├── <output-directory>/
 │   ├── model/
 │   ├── oversampled-datasets/
-│   ├── important-features/
 |   ├── feature-selected-datasets/
 |   ├── classification-results/
 ```
