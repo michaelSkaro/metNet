@@ -62,9 +62,9 @@ Path to input directory containing the methylation data
 Path to output directory to save results
           -m MODEL, --model
 Path to CUP pretrained model
-           -c CLASS_DIR, --classifications
+          -c CLASS_DIR, --classifications
 Path to classifications visualization data.
-           -s STATE --state
+          -s STATE --state
 raw or normalized Binary variable indicating if the data in the input directory is raw idat 
 data or normalized beta values. 
 ```                              
