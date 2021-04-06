@@ -4,12 +4,14 @@ A supervisory scripts to run all data through the
 CUP primary tutmor type classificaiton pipeline.
 Pipeline Steps:
     1. Ingest the data into the model.[]
-    2. Preprocess the data using filtering.[]
-    3. Load the pretrained model.[]
-    4. Classify 32-way classification.[]
-    5. Provide the visualization of performances.[]
+    2. Preprocess the data using filtering.[X]
+    3. Load the pretrained model.[X]
+    4. Classify 32-way classification.[X]
+    5. Provide the visualization of performances.[X]
     To do:
 Portability:
+	****Split the model building python script to a set of steps and break down into a snakeMake pipeline to execute each step
+	This makes the model more dynamic and can include the raw or preprocessed data as an option for the clincian's labs*** []
 	Build out the python script to make all the directories. [X]
 	Build out the python script to run all of the options as flags. [X]
 	Docker-SnakeMake-conda_env: model eval on local data set. [X]
@@ -17,9 +19,6 @@ Portability:
 Analysis:
 	Build out the python script to run the model on the extended data. []
 	
-
-	
-
 '''
 
 
