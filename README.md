@@ -56,15 +56,15 @@ Meta-pipeline to identify transposable element insertions using next
 generation sequencing data
 
 required arguments:
--i INPUT, --input
+          -i INPUT, --input
 Path to input directory containing the methylation data
--o OUTPUT, --output
+          -o OUTPUT, --output
 Path to output directory to save results
--m MODEL, --model
+          -m MODEL, --model
 Path to CUP pretrained model
--c CLASS_DIR, --classifications
+           -c CLASS_DIR, --classifications
 Path to classifications visualization data.
--s STATE --state
+           -s STATE --state
 raw or normalized Binary variable indicating if the data in the input directory is raw idat 
 data or normalized beta values. 
 ```                              
