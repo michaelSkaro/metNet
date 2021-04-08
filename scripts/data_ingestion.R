@@ -65,10 +65,9 @@ rgSet <- read.metharray.exp(targets=targets)
 detP <- detectionP(rgSet)
 # is this necessary?
 
-mSetSq <- preprocessQuantile(rgSet) 
+mSetSq <- preprocessIllumina(rgSet, normalize = "controls") 
 # calculate the normalized beat values
 
 bVals <- as.data.frame(getBeta(mSetSq))
 
-
-write.csv("/mnt/storage/mskaro1/methylation_illumina450k/data/Normalized_betas.csv", bVals)
+write.csv(bVals, "/mnt/storage/mskaro1/methylation_illumina450k/data/Normalized_betas.csv")
