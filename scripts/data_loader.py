@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
-
-
-# import libraries for the gradient boosting
+# import libraries
 import io
 import math
 import os
@@ -96,7 +93,7 @@ df, feature_names = data_loader(IDs)
 
 
 main_list = list(set(selected_features) - set(feature_names))
-
+# wellllll this is soething we have have to re-adjust
 for col in main_list:
     if col != "Unnamed: 0":
         df[col] = 0
