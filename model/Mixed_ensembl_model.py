@@ -318,7 +318,7 @@ test = molecule_preprocessing(path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/
 #     Lasso and RF have their own feature selection methods.
 # 
 
-# In[113]:
+# In[122]:
 
 
 # Correlation
@@ -380,20 +380,20 @@ class feature_selection:
         chi_feature = X.loc[:, chi_support].columns.tolist()
 
         return chi_support
-    
+
     def rfR(X, num_feats):
         X = feature_selection.dummies(X)
         y = X["cancerType"]
         X = X.drop("cancerType", axis=1)
         y_encoded = feature_selection.encode_y(y)
         X_norm = MinMaxScaler().fit_transform(X)
-        X_train,y_train,X_test,y_test = train_test_split(X_norm,test_size=0.3)
-        sel = SelectFromModel(estimator =RandomForestRegressor(n_estimators = 100,n_jobs=20))
-        sel.fit(X_train, y_train)
-        rfR_support = sel.get_support()
-        rfe_feature = X_train.columns[(sel.get_support())]
-        
-        return rfR_support
+        embeded_rf_selector = SelectFromModel(
+            RandomForestRegressor(n_estimators=100), max_features=num_feats)
+        embeded_rf_selector.fit(X, y)
+        embeded_rf_support = embeded_rf_selector.get_support()
+        embeded_rf_feature = X.loc[:, embeded_rf_support].columns.tolist()
+
+        return embedded_rf_support
 
     # chi_support = chi_selector(X, num_feats=5000)
 
@@ -483,7 +483,8 @@ class feature_selection:
         chi_support,
         rfe_support,
         embedded_lr_support,
-        embedded_rf_support,
+        embedded_rfC_support,
+        embedded_rfR_support,
         embedded_lgb_support,
     ):
         df = pd.DataFrame(
@@ -493,11 +494,10 @@ class feature_selection:
                 "Chi-2": chi_support,
                 "RFE": rfe_support,
                 "Logistics": embeded_lr_support,
-                "RandomForestClassifier": embeded_rf_support,
-                "RandomForstRegression "
+                "RandomForestClassifier": embeded_rfC_support,
+                "RandomForstRegression": embeded_rfR_support,
                 "LightGBM": embeded_lgb_support,
-            }
-        )
+            })
         # count the selected times for each feature
         df["Total"] = np.sum(df, axis=1)
         df = df.sort_values(["Total", "Feature"], ascending=False)
