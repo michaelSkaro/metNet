@@ -1,3 +1,38 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[111]:
+
+
+# New approach lets attack building the shell.
+import glob
+import io
+import math
+import os
+import re
+import time
+import warnings
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from lightgbm import LGBMClassifier
+from matplotlib import pyplot
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.feature_selection import SelectFromModel, SelectKBest, chi2
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import explained_variance_score
+from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
+from tensorflow import keras
+from tensorflow.keras import Sequential, backend, layers
+from tensorflow.keras.layers import Dense, Dropout
+
+
+# In[103]:
+
+
 # make classes that expect an input of certain input For DNA, RNA, and methylation
 
 
@@ -197,18 +232,17 @@ class molecule_preprocessing:
             df["labels"] = labels
         return df
 
-    def build_input(self, path, start, end):
+    def build_input(self, path, start, end, molecule):
         block = []
         for file in glob.glob(path):
-            dat = read_cut(file, start, end)
-            cancer_type = CT(file)
-            df = labeler(dat, cancer_type)
+            dat = test.read_cut(file, start, end, molecule)
+            cancer_type = test.CT(file, molecule)
+            df = test.labeler(dat, cancer_type, molecule)
             block.append(df)
         df_block = pd.concat(block, ignore_index=True)
         df_block = df_block[df_block.labels != "remove"]
-        
-        return df_block
 
+        return df_block
 
     def feature_selection(self, X, molecule):
         pass
@@ -247,3 +281,285 @@ class Classifier:
 
     def visualize(self):
         pass
+
+
+# In[104]:
+
+
+# https://scikit-learn.org/stable/modules/ensemble.html
+
+
+# In[105]:
+
+
+test = molecule_preprocessing(path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv")
+
+
+# 
+# The random forest regression seems not to be the optimal option
+# the two data type feature selection. We will need to regroup here for better perfromance.
+# Further the sequential NN may not be best suited for the applicaitons here.
+# If we intend to cap the DNNs with a voting classifier is may be pertanent to use the 
+# functional NN that is more fluid with TF
+# 
+# 
+# 
+# 
+# First three approaches:
+# 1. Filter based: 
+#     We specify some metric and based on that filter features. 
+#     An example of such a metric could be correlation/chi-square.
+# 2. Wrapper-based: 
+#     Wrapper methods consider the selection of a set of 
+#     features as a search problem. Example: Recursive 
+#     Feature Elimination
+# 3. Embedded: Embedded methods use algorithms that have 
+#     built-in feature selection methods. For instance, 
+#     Lasso and RF have their own feature selection methods.
+# 
+
+# In[113]:
+
+
+# Correlation
+class feature_selection:
+    def __init__(self, path, X):
+        self.path = path
+        self.X = X
+
+        pass
+
+    def encode_y(y):
+        y = np.array(y)
+        y = y.reshape(-1, 1)
+        encoder = OneHotEncoder(sparse=False)
+        encoder.fit(y)
+        y_encoded = encoder.transform(y)
+
+        return y_encoded
+    
+    def dummies(X):
+        if "Composite Element REF" in X.columns:
+            X = X.drop("Composite Element REF", axis=1)
+        if "samples" in X.columns:
+            X = X.drop("samples", axis=1)
+        X_processed = pd.get_dummies(X, columns=["labels"])
+
+        return X_processed
+
+    def cor_selector(X, num_feats):
+        X = feature_selection.dummies(X)
+        y = X["cancerType"]
+        X = X.drop("cancerType", axis=1)
+        cor_list = []
+        feature_name = X.columns.tolist()
+        # calculate the correlation with y for each feature
+        for i in X.columns.tolist():
+            cor = np.corrcoef(X[i], y)[0, 1]
+            cor_list.append(cor)
+        # replace NaN with 0
+        cor_list = [0 if np.isnan(i) else i for i in cor_list]
+        # feature name
+        cor_feature = X.iloc[
+            :, np.argsort(np.abs(cor_list))[-num_feats:]
+        ].columns.tolist()
+        # feature selection? 0 for not select, 1 for select
+        cor_support = [True if i in cor_feature else False for i in feature_name]
+        return cor_support, feature_name
+
+    # cor_support, feature_name = cor_selector(X, num_feats=5000)
+
+    def chi_selector(X, num_feats):
+        X = feature_selection.dummies(X)
+        y = X["cancerType"]
+        X = X.drop("cancerType", axis=1)
+        X_norm = MinMaxScaler().fit_transform(X)
+        chi_selector = SelectKBest(chi2, k=num_feats)
+        chi_selector.fit(X_norm, y)
+        chi_support = chi_selector.get_support()
+        chi_feature = X.loc[:, chi_support].columns.tolist()
+
+        return chi_support
+    
+    def rfR(X, num_feats):
+        X = feature_selection.dummies(X)
+        y = X["cancerType"]
+        X = X.drop("cancerType", axis=1)
+        y_encoded = feature_selection.encode_y(y)
+        X_norm = MinMaxScaler().fit_transform(X)
+        X_train,y_train,X_test,y_test = train_test_split(X_norm,test_size=0.3)
+        sel = SelectFromModel(estimator =RandomForestRegressor(n_estimators = 100,n_jobs=20))
+        sel.fit(X_train, y_train)
+        rfR_support = sel.get_support()
+        rfe_feature = X_train.columns[(sel.get_support())]
+        
+        return rfR_support
+
+    # chi_support = chi_selector(X, num_feats=5000)
+
+    def logR(X, num_features):
+        X = feature_selection.dummies(X)
+        y = X["cancerType"]
+        X = X.drop("cancerType", axis=1)
+        y_encoded = feature_selection.encode_y(y)
+        X_norm = MinMaxScaler().fit_transform(X)
+        rfe_selector = RFE(
+            estimator=LogisticRegression(),
+            n_features_to_select=num_feats,
+            step=10,
+            verbose=5,
+        )
+        rfe_selector.fit(X_norm, y)
+        rfe_support = rfe_selector.get_support()
+        rfe_feature = X.loc[:, rfe_support].columns.tolist()
+
+        return rfe_support
+
+    # rfe_support = logR(X, num_feats=5000)
+
+    def lassoR(X, num_feats):
+        X = feature_selection.dummies(X)
+        y = X["cancerType"]
+        X = X.drop("cancerType", axis=1)
+        y_encoded = feature_selection.encode_y(y)
+        X_norm = MinMaxScaler().fit_transform(X)
+        embeded_lr_selector = SelectFromModel(
+            LogisticRegression(penalty="l1"), max_features=num_feats
+        )
+        embeded_lr_selector.fit(X_norm, y)
+        embeded_lr_support = embeded_lr_selector.get_support()
+        embeded_lr_feature = X.loc[:, embeded_lr_support].columns.tolist()
+        return embeded_lr_support, embeded_lr_feature
+
+    # embeded_lr_support = lassoR(X, num_feats=5000)
+
+    def rfC(X, num_feats):
+        X = feature_selection.dummies(X)
+        y = X["cancerType"]
+        X = X.drop("cancerType", axis=1)
+        y_encoded = feature_selection.encode_y(y)
+        X_norm = MinMaxScaler().fit_transform(X)
+        embeded_rf_selector = SelectFromModel(
+            RandomForestClassifier(n_estimators=100), max_features=num_feats
+        )
+        embeded_rf_selector.fit(X, y)
+        embeded_rf_support = embeded_rf_selector.get_support()
+        embeded_rf_feature = X.loc[:, embeded_rf_support].columns.tolist()
+
+        return embeded_rf_support
+
+    # embeded_rf_support = rfC(X, num_feats=5000)
+
+    def LGBMC_selector(X, num_feats):
+        X = feature_selection.dummies(X)
+        y = X["cancerType"]
+        X = X.drop("cancerType", axis=1)
+        y_encoded = feature_selection.encode_y(y)
+        X_norm = MinMaxScaler().fit_transform(X)
+        lgbc = LGBMClassifier(
+            n_estimators=500,
+            learning_rate=0.05,
+            num_leaves=32,
+            colsample_bytree=0.2,
+            reg_alpha=3,
+            reg_lambda=1,
+            min_split_gain=0.01,
+            min_child_weight=40,
+        )
+
+        embeded_lgb_selector = SelectFromModel(lgbc, max_features=num_feats)
+        embeded_lgb_selector.fit(X_norm, y)
+
+        embeded_lgb_support = embeded_lgb_selector.get_support()
+        embeded_lgb_feature = X.loc[:, embeded_lgb_support].columns.tolist()
+
+        return embeded_lgb_support
+
+    # embeded_lgb_support = rfC(X, num_feats=5000)
+
+    def cross_validate_feature_selection(
+        feature_name,
+        cor_support,
+        chi_support,
+        rfe_support,
+        embedded_lr_support,
+        embedded_rf_support,
+        embedded_lgb_support,
+    ):
+        df = pd.DataFrame(
+            {
+                "Feature": feature_name,
+                "Pearson": cor_support,
+                "Chi-2": chi_support,
+                "RFE": rfe_support,
+                "Logistics": embeded_lr_support,
+                "RandomForestClassifier": embeded_rf_support,
+                "RandomForstRegression "
+                "LightGBM": embeded_lgb_support,
+            }
+        )
+        # count the selected times for each feature
+        df["Total"] = np.sum(df, axis=1)
+        df = df.sort_values(["Total", "Feature"], ascending=False)
+        df.index = range(1, len(df) + 1)
+
+        return df
+    
+    def filter_features(X, feature_selection_df):
+        # select 5000 features from the X data frames
+        # return these for modeling the data with the DNNs
+        pass
+
+
+# In[107]:
+
+
+# feature_selection_df = cross_val_score(
+#    feature_name,
+#    cor_support,
+#    chi_support,
+#    rfe_support,
+#    embedded_lr_support,
+#    embedded_rf_support,
+#    embedded_lgb_support,
+# )
+
+# feature_selection_df.to_csv("window_" + str(feature_name[0]) + "_" + str(feature_name[-1]) + ".csv")
+
+
+# In[108]:
+
+
+print(dir(molecule_preprocessing))
+
+
+# In[109]:
+
+
+df = test.read_cut(
+    file="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/TCGA-SARC.counts.csv",
+    start=0,
+    end=100,
+    molecule="RNA",
+)
+# cancer_type = test.CT(file = "/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/TCGA-SARC.counts.csv",molecule = "RNA")
+# df = test.labeler(df, cancer_type, molecule ="RNA")
+df = test.build_input(
+    path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv",
+    start=0,
+    end=604,
+    molecule="RNA",
+)
+
+
+# In[114]:
+
+
+df
+
+
+# In[ ]:
+
+
+# get feature importances and take top 50
+
