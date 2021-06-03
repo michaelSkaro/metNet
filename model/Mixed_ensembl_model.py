@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+
 # New approach lets attack building the shell.
 import glob
 import io
@@ -249,6 +250,48 @@ class molecule_preprocessing:
         pass
 
     def grade_all(self, path, molecule):
+        if molecule == "RNA":
+            windows = molecule_preprocessing.chunkIt(seq=range(60486), num=100)
+
+            for i in windows:
+                start = list(i)[0]
+                end = list(i)[-1]
+                print(start)
+                print(end)
+                df_block = molecule_preprocessing.build_input(path, start,end,molecule)
+                CV = feature_selection.grade_features(df_block)
+                CV.to_csv(
+                    "Ensembl_ID_window_" + str(start) + "_" + str(end) + ".csv"
+                )
+
+        if molecule == "DNA":
+            windows = molecule_preprocessing.chunkIt(seq = range(40545), num= 100)
+
+            for i in windows:
+                start = list(i)[0]
+                end = list(i)[-1]
+                print(start)
+                print(end)
+                df_block = molecule_preprocessing.build_input(path, start,end,molecule)
+                CV = feature_selection.grade_features(df_block)
+                CV.to_csv(
+                    "Gene_ID_window_" + str(start) + "_" + str(end) + ".csv"
+                )
+
+        if molecule == "methylation":
+            windows = molecule_preprocessing.chunkIt(seq=range(485577), num=100)
+
+            for i in windows:
+                start = list(i)[0]
+                end = list(i)[-1]
+                print(start)
+                print(end)
+                df_block = molecule_preprocessing.build_input(path, start,end,molecule)
+                CV = feature_selection.grade_features(df_block)
+                CV.to_csv(
+                    "Methylation_cgID_window_" + str(start) + "_" + str(end) + ".csv"
+                )
+
         pass
 
     def join(self, path, molecule):
@@ -319,7 +362,7 @@ test = molecule_preprocessing(path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/
 #     Lasso and RF have their own feature selection methods.
 # 
 
-# In[380]:
+# In[402]:
 
 
 # Correlation
@@ -357,25 +400,6 @@ class feature_selection:
         X = pd.get_dummies(X, columns=["labels"])
 
         return X
-    '''
-    def cor_selector(X, num_feats):
-        X, y, feature_list = feature_selection.prep(X)
-        y = feature_selection.encode_y(y)
-        cor_list = []
-        feature_name = X.columns.tolist()
-        # calculate the correlation with y for each feature
-        for i in X.columns.tolist():
-            cor = np.corrcoef(X[i], y)[0, 1]
-            cor_list.append(cor)
-        # replace NaN with 0
-        cor_list = [0 if np.isnan(i) else i for i in cor_list]
-        # feature name
-        cor_feature = X.iloc[:, np.argsort(np.abs(cor_list))[-num_feats:]].columns.tolist()
-        # feature selection? 0 for not select, 1 for select
-        cor_support = [True if i in cor_feature else False for i in feature_list]
-        return cor_support, feature_list
-    '''
-    # cor_support, feature_name = cor_selector(X, num_feats=5000)
 
     def chi_selector(X, num_feats):
         X, y, feature_list = feature_selection.prep(X)
@@ -383,7 +407,7 @@ class feature_selection:
         chi_selector = SelectKBest(chi2, k=num_feats)
         chi_selector.fit(X, y.ravel())
         chi_support = chi_selector.get_support()
-        chi_feature = X.loc[:, chi_support].columns.tolist()
+        # chi_feature = X.loc[:, chi_support].columns.tolist()
 
         return chi_support, feature_list
 
@@ -395,7 +419,7 @@ class feature_selection:
         )
         embeded_rf_selector.fit(X, y.ravel())
         embeded_rf_support = embeded_rf_selector.get_support()
-        embeded_rf_feature = X.loc[:, embeded_rf_support].columns.tolist()
+        # embeded_rf_feature = X.loc[:, embeded_rf_support].columns.tolist()
 
         return embeded_rf_support
 
@@ -412,7 +436,7 @@ class feature_selection:
         )
         rfe_selector.fit(X, y.ravel())
         rfe_support = rfe_selector.get_support()
-        rfe_feature = X.loc[:, rfe_support].columns.tolist()
+        # rfe_feature = X.loc[:, rfe_support].columns.tolist()
 
         return rfe_support
 
@@ -423,9 +447,9 @@ class feature_selection:
         embeded_lr_selector = SelectFromModel(
             LogisticRegression(penalty="l2", n_jobs=20), max_features=num_feats
         )
-        embeded_lr_selector.fit(X, y)
+        embeded_lr_selector.fit(X, y.ravel())
         embeded_lr_support = embeded_lr_selector.get_support()
-        embeded_lr_feature = X.loc[:, embeded_lr_support].columns.tolist()
+        # embeded_lr_feature = X.loc[:, embeded_lr_support].columns.tolist()
         return embeded_lr_support
 
     # embeded_lr_support = lassoR(X, num_feats=5000)
@@ -435,9 +459,9 @@ class feature_selection:
         embeded_rf_selector = SelectFromModel(
             RandomForestClassifier(n_estimators=100, n_jobs=20), max_features=num_feats
         )
-        embeded_rf_selector.fit(X, y)
+        embeded_rf_selector.fit(X, y.ravel())
         embeded_rf_support = embeded_rf_selector.get_support()
-        embeded_rf_feature = X.loc[:, embeded_rf_support].columns.tolist()
+        # embeded_rf_feature = X.loc[:, embeded_rf_support].columns.tolist()
 
         return embeded_rf_support
 
@@ -458,10 +482,10 @@ class feature_selection:
         )
 
         embeded_lgb_selector = SelectFromModel(lgbc, max_features=num_feats)
-        embeded_lgb_selector.fit(X, y)
+        embeded_lgb_selector.fit(X, y.ravel())
 
         embeded_lgb_support = embeded_lgb_selector.get_support()
-        embeded_lgb_feature = X.loc[:, embeded_lgb_support].columns.tolist()
+        # embeded_lgb_feature = X.loc[:, embeded_lgb_support].columns.tolist()
 
         return embeded_lgb_support
 
@@ -469,24 +493,22 @@ class feature_selection:
 
     def cross_validate_feature_selection(
         feature_list,
-        # cor_support,
         chi_support,
         rfe_support,
         embeded_lr_support,
         embeded_rfC_support,
         embeded_rfR_support,
-        embeded_lgb_support,
+        # embeded_lgb_support,
     ):
         df = pd.DataFrame(
             {
                 "Feature": feature_list,
-                #"Pearson": cor_support,
                 "Chi-2": chi_support,
                 "RFE": rfe_support,
                 "Logistics": embeded_lr_support,
                 "RandomForestClassifier": embeded_rfC_support,
                 "RandomForstRegression": embeded_rfR_support,
-                "LightGBM": embeded_lgb_support,
+                # "LightGBM": embeded_lgb_support, # try to fix this later?
             }
         )
         # count the selected times for each feature
@@ -497,58 +519,46 @@ class feature_selection:
         return df
 
     def grade_features(X):
-        #cor_support, feature_list = feature_selection.cor_selector(
+        # cor_support, feature_list = feature_selection.cor_selector(
         #    X, num_feats=50)
-        chi_support = feature_selection.chi_selector(X, num_feats=50)
+        chi_support, feature_list = feature_selection.chi_selector(X, num_feats=50)
         rfe_support = feature_selection.lassoR(X, num_feats=50)
         embeded_lr_support = feature_selection.logR(X, num_feats=50)
         embeded_rfC_support = feature_selection.rfC(X, num_feats=50)
         embeded_rfR_support = feature_selection.rfR(X, num_feats=50)
-        embeded_lgb_support = feature_selection.LGBMC_selector(X, num_feats=50)
+        # embeded_lgb_support = feature_selection.LGBMC_selector(X, num_feats=50)
 
         CV = feature_selection.cross_validate_feature_selection(
             feature_list,
-            #cor_support,
+            # cor_support,
             chi_support,
             rfe_support,
             embeded_lr_support,
             embeded_rfC_support,
             embeded_rfR_support,
-            embeded_lgb_support,
+            # embeded_lgb_support,
         )
+        CV = CV[1:50]
 
         return CV
 
-    def filter_features(X, feature_selection_df):
-        # select 5000 features from the X data frames
-        # return these for modeling the data with the DNNs
-        pass
+
+# In[390]:
 
 
-# In[ ]:
-
-
-df = test.read_cut(
-    file="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/TCGA-SARC.counts.csv",
-    start=0,
-    end=100,
-    molecule="RNA",
-)
-# cancer_type = test.CT(file = "/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/TCGA-SARC.counts.csv",molecule = "RNA")
-# df = test.labeler(df, cancer_type, molecule ="RNA")
 df = test.build_input(
     path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv",
     start=0,
     end=604,
     molecule="RNA",
 )
-# feed the df into all of the feature selection methods.
-# select the top 50 features with the most selection between all the methods
-
-
-# In[ ]:
-
-
 CV = feature_selection.grade_features(df)
+
+
+# In[401]:
+
+
+CV[1:50]
+
 
 
