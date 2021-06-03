@@ -546,19 +546,52 @@ class feature_selection:
 # In[390]:
 
 
-df = test.build_input(
-    path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv",
-    start=0,
-    end=604,
-    molecule="RNA",
-)
-CV = feature_selection.grade_features(df)
+def grade_all(path, molecule):
+        if molecule == "RNA":
+            windows = molecule_preprocessing.chunkIt(seq=range(60486), num=100)
+
+            for i in windows:
+                start = list(i)[0]
+                end = list(i)[-1]
+                df_block = molecule_preprocessing.build_input(mp,path=path, start=start,end=end,molecule="RNA")
+                CV = feature_selection.grade_features(df_block)
+                CV.to_csv(
+                    "Ensembl_ID_window_" + str(start) + "_" + str(end) + ".csv"
+                )
+
+        if molecule == "DNA":
+            windows = molecule_preprocessing.chunkIt(seq = range(40545), num= 100)
+
+            for i in windows:
+                start = list(i)[0]
+                end = list(i)[-1]
+                df_block = molecule_preprocessing.build_input(mp,path=path, start=start,end=end,molecule="DNA")
+                CV = feature_selection.grade_features(df_block)
+                CV.to_csv(
+                    "Gene_ID_window_" + str(start) + "_" + str(end) + ".csv"
+                )
+
+        if molecule == "methylation":
+            windows = molecule_preprocessing.chunkIt(seq=range(485577), num=100)
+
+            for i in windows:
+                start = list(i)[0]
+                end = list(i)[-1]
+                df_block = molecule_preprocessing.build_input(mp,path=path, start=start,end=end,molecule="methylation")
+                CV = feature_selection.grade_features(df_block)
+                CV.to_csv(
+                    "Methylation_cgID_window_" + str(start) + "_" + str(end) + ".csv"
+                )
+
+        pass
+
+mp = molecule_preprocessing(path = "/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv")
+fs = feature_selection(mp)
+df = grade_all(path = "/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv", molecule ="RNA")
 
 
-# In[401]:
 
 
-CV[1:50]
 
 
 
