@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# In[469]:
+
 
 # New approach lets attack building the shell.
 import glob
@@ -10,11 +12,13 @@ import os
 import re
 import time
 import warnings
+from collections import Counter
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from imblearn.over_sampling import SMOTE
 from lightgbm import LGBMClassifier
 from matplotlib import pyplot
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -22,18 +26,21 @@ from sklearn.feature_selection import RFE, SelectFromModel, SelectKBest, chi2
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import explained_variance_score
 from sklearn.model_selection import cross_val_score, train_test_split
-from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, OrdinalEncoder
+from sklearn.preprocessing import (
+    LabelEncoder,
+    MinMaxScaler,
+    OneHotEncoder,
+    OrdinalEncoder,
+)
 from tensorflow import keras
 from tensorflow.keras import Sequential, backend, layers
 from tensorflow.keras.layers import Dense, Dropout
 
 
-# In[273]:
+# In[605]:
 
 
 # make classes that expect an input of certain input For DNA, RNA, and methylation
-
-
 class molecule_preprocessing:
     def __init__(self, path):
         self.path = path
@@ -104,6 +111,7 @@ class molecule_preprocessing:
                 .set_index("sample")
                 .T
             )
+            df = df.drop("sample", axis=1)
 
         if molecule == "methylation":
             sampleIDs = pd.read_table(
@@ -233,136 +241,124 @@ class molecule_preprocessing:
     def build_input(self, path, start, end, molecule):
         block = []
         for file in glob.glob(path):
-            dat = test.read_cut(file, start, end, molecule)
-            cancer_type = test.CT(file, molecule)
-            df = test.labeler(dat, cancer_type, molecule)
+            dat = mp.read_cut(file, start, end, molecule)
+            cancer_type = mp.CT(file, molecule)
+            df = mp.labeler(dat, cancer_type, molecule)
             block.append(df)
         df_block = pd.concat(block, ignore_index=True)
         df_block = df_block[df_block.labels != "remove"]
 
         return df_block
 
-    def feature_selection(self):
-        """
-        This is going to be a stand alone class
+    def join(self, path, molecule):
 
-        """
-        pass
+        if molecule == "RNA" or "DNA":
+            features = []
+            for file in glob.glob(path):
+                dat = pd.read_csv(file)
+                features.append(dat)
+                # concatnenate them and sort the feature ranks
+            df = pd.concat(features, ignore_index=True)
+            df.drop_duplicates(subset=["Feature"])
+            df.sort_values(by="Total", ascending=False)
 
-    def grade_all(self, path, molecule):
-        if molecule == "RNA":
-            windows = molecule_preprocessing.chunkIt(seq=range(60486), num=100)
-
-            for i in windows:
-                start = list(i)[0]
-                end = list(i)[-1]
-                print(start)
-                print(end)
-                df_block = molecule_preprocessing.build_input(path, start,end,molecule)
-                CV = feature_selection.grade_features(df_block)
-                CV.to_csv(
-                    "Ensembl_ID_window_" + str(start) + "_" + str(end) + ".csv"
-                )
-
-        if molecule == "DNA":
-            windows = molecule_preprocessing.chunkIt(seq = range(40545), num= 100)
-
-            for i in windows:
-                start = list(i)[0]
-                end = list(i)[-1]
-                print(start)
-                print(end)
-                df_block = molecule_preprocessing.build_input(path, start,end,molecule)
-                CV = feature_selection.grade_features(df_block)
-                CV.to_csv(
-                    "Gene_ID_window_" + str(start) + "_" + str(end) + ".csv"
-                )
+            features = df.Feature
+            features = features.drop_duplicates()
 
         if molecule == "methylation":
-            windows = molecule_preprocessing.chunkIt(seq=range(485577), num=100)
+            features = []
+            for file in glob.glob(path):
+                dat = pd.read_csv(file)
+                features.append(dat)
+                # concatnenate them and sort the feature ranks
+            df = pd.concat(features, ignore_index=True)
+            df.drop_duplicates(subset=["cgIDs"])
+            df.sort_values(by="importance_scores", ascending=False)
+            # get cgIDs
+            features = df.cgIDs
+            features = features.drop_duplicates()
 
-            for i in windows:
-                start = list(i)[0]
-                end = list(i)[-1]
-                print(start)
-                print(end)
-                df_block = molecule_preprocessing.build_input(path, start,end,molecule)
-                CV = feature_selection.grade_features(df_block)
-                CV.to_csv(
-                    "Methylation_cgID_window_" + str(start) + "_" + str(end) + ".csv"
-                )
-
-        pass
-
-    def join(self, path, molecule):
-        pass
+        return features
 
     def subset(self, path, features, molecule):
-        pass
+        selected = []
+        tic_all = time.perf_counter()
+        for file in glob.glob(path):
+            print(file)
+            df = pd.read_table(file, delimiter=",")
+            df = df[df["Ensembl"].isin(features)]
+            df = df.T
+            names = df.iloc[0]
+            cancer_type = molecule_preprocessing.CT(self, file, molecule)
+            df = molecule_preprocessing.labeler(self, df, cancer_type, molecule)
+            print(df.shape)
+            selected.append(df)
+        df_block = pd.concat(selected, ignore_index=True)
+        df_block = df_block.fillna(0)
+        df_block = df_block[df_block.labels != "remove"]
+        print(df_block.shape)
+        column_indices = range(4707)
+        new_names = names
+        old_names = df_block.columns[column_indices]
+        df_block.rename(columns=dict(zip(old_names, new_names)), inplace=True)
+        toc_all = time.perf_counter()
+        print(f"Read in features in {toc_all - tic_all:0.4f} seconds")
+        print(features.shape)
+        return df_block
 
-    def encode(self, y):
-        pass
+    def DNN_preprocessing(self, X):
 
-    def data_preprocessing(self, X, molecule):
-        pass
+        # if the file has rowIDs, we can drop these
+        if "Composite Element REF" in X.columns:
+            X = X.drop("Composite Element REF", axis=1)
+        if "Unnamed: 0" in X.columns:
+            X = X.drop("Unnamed: 0", axis=1)
+        if "sample" in X.columns:
+            X = X.drop("sample", axis=1)
+        # subset out the rows that have Target
+        X = X[X.cancerType != "TARGET-WT"]
+        X = X[X.cancerType != "TARGET-RT"]
+        X = X[X.cancerType != "TARGET-NBL"]
+        X = X[X.cancerType != "TARGET-AML"]
+        # combined READ and COAD
+        X = X.replace({"cancerType": "READ"}, "COADREAD")
+        X = X.replace({"cancerType": "COAD"}, "COADREAD")
+        # substring the TCGA- out of the column
+        # get rid of TCGA- in cancer type
+        X["cancerType"] = X["cancerType"].str[5:]
+        y = X["cancerType"]
+        X = X.drop("cancerType", axis=1)
+        X = pd.get_dummies(X, columns=["labels"])
+        return X, y
 
-    def balance(self, X, y, molecule):
-        pass
+    def balance(self, X, y):
+        y_encoded = LabelEncoder().fit_transform(y)
+        counter = Counter(y_encoded)
+        for k, v in counter.items():
+            per = v / len(y) * 100
+            print("Class=%d, n=%d (%.3f%%)" % (k, v, per))
+        # plot the distribution
+        pyplot.bar(counter.keys(), counter.values())
+        pyplot.show()
 
-    def evaluate(self, X, y, model, molecule):
-        pass
+        oversample = SMOTE()
+        X, y = oversample.fit_resample(X, y_encoded)
+        # summarize distribution
+        counter = Counter(y)
+        for k, v in counter.items():
+            per = v / len(y) * 100
+            print("Class=%d, n=%d (%.3f%%)" % (k, v, per))
+        # plot the distribution
+        pyplot.bar(counter.keys(), counter.values())
+        pyplot.show()
+        for column in X:
+            X[column] = X[column].apply(np.ceil)
+        X = X.astype(int)
 
-
-class Classifier:
-    def build_calssifier(self):
-        pass
-
-    def split(self):
-        pass
-
-    def fit_clf(self):
-        pass
-
-    def visualize(self):
-        pass
-
-
-# In[274]:
-
-
-# https://scikit-learn.org/stable/modules/ensemble.html
-
-
-# In[275]:
+        return X, y
 
 
-test = molecule_preprocessing(path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv")
-
-
-# 
-# The random forest regression seems not to be the optimal option
-# the two data type feature selection. We will need to regroup here for better perfromance.
-# Further the sequential NN may not be best suited for the applicaitons here.
-# If we intend to cap the DNNs with a voting classifier is may be pertanent to use the 
-# functional NN that is more fluid with TF
-# 
-# 
-# 
-# 
-# First three approaches:
-# 1. Filter based: 
-#     We specify some metric and based on that filter features. 
-#     An example of such a metric could be correlation/chi-square.
-# 2. Wrapper-based: 
-#     Wrapper methods consider the selection of a set of 
-#     features as a search problem. Example: Recursive 
-#     Feature Elimination
-# 3. Embedded: Embedded methods use algorithms that have 
-#     built-in feature selection methods. For instance, 
-#     Lasso and RF have their own feature selection methods.
-# 
-
-# In[402]:
+# In[606]:
 
 
 # Correlation
@@ -543,55 +539,235 @@ class feature_selection:
         return CV
 
 
-# In[390]:
+# In[ ]:
 
 
 def grade_all(path, molecule):
-        if molecule == "RNA":
-            windows = molecule_preprocessing.chunkIt(seq=range(60486), num=100)
+    if molecule == "RNA":
+        windows = molecule_preprocessing.chunkIt(seq=range(60486), num=100)
 
-            for i in windows:
-                start = list(i)[0]
-                end = list(i)[-1]
-                df_block = molecule_preprocessing.build_input(mp,path=path, start=start,end=end,molecule="RNA")
-                CV = feature_selection.grade_features(df_block)
-                CV.to_csv(
-                    "Ensembl_ID_window_" + str(start) + "_" + str(end) + ".csv"
-                )
+        for i in windows:
+            start = list(i)[0]
+            end = list(i)[-1]
+            df_block = molecule_preprocessing.build_input(
+                mp, path=path, start=start, end=end, molecule="RNA"
+            )
+            CV = feature_selection.grade_features(df_block)
+            CV.to_csv("Ensembl_ID_window_" + str(start) + "_" + str(end) + ".csv")
 
-        if molecule == "DNA":
-            windows = molecule_preprocessing.chunkIt(seq = range(40545), num= 100)
+    if molecule == "DNA":
+        windows = molecule_preprocessing.chunkIt(seq=range(40545), num=100)
 
-            for i in windows:
-                start = list(i)[0]
-                end = list(i)[-1]
-                df_block = molecule_preprocessing.build_input(mp,path=path, start=start,end=end,molecule="DNA")
-                CV = feature_selection.grade_features(df_block)
-                CV.to_csv(
-                    "Gene_ID_window_" + str(start) + "_" + str(end) + ".csv"
-                )
+        for i in windows:
+            start = list(i)[0]
+            end = list(i)[-1]
+            df_block = molecule_preprocessing.build_input(
+                mp, path=path, start=start, end=end, molecule="DNA"
+            )
+            CV = feature_selection.grade_features(df_block)
+            CV.to_csv("Gene_ID_window_" + str(start) + "_" + str(end) + ".csv")
 
-        if molecule == "methylation":
-            windows = molecule_preprocessing.chunkIt(seq=range(485577), num=100)
+    if molecule == "methylation":
+        windows = molecule_preprocessing.chunkIt(seq=range(485577), num=100)
 
-            for i in windows:
-                start = list(i)[0]
-                end = list(i)[-1]
-                df_block = molecule_preprocessing.build_input(mp,path=path, start=start,end=end,molecule="methylation")
-                CV = feature_selection.grade_features(df_block)
-                CV.to_csv(
-                    "Methylation_cgID_window_" + str(start) + "_" + str(end) + ".csv"
-                )
+        for i in windows:
+            start = list(i)[0]
+            end = list(i)[-1]
+            df_block = molecule_preprocessing.build_input(
+                mp, path=path, start=start, end=end, molecule="methylation"
+            )
+            CV = feature_selection.grade_features(df_block)
+            CV.to_csv("Methylation_cgID_window_" + str(start) + "_" + str(end) + ".csv")
 
+    pass
+
+
+df = test.build_input(
+    path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv",
+    start=0,
+    end=604,
+    molecule="RNA",
+)
+CV = feature_selection.grade_features(df)
+mp = molecule_preprocessing(path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv")
+fs = feature_selection(mp)
+df = grade_all(path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv", molecule="RNA")
+mp = molecule_preprocessing(
+    path="/home/jovyan/storage/Machine_Learning/RNA_Selected_IDs_ensemble/"
+)
+features = molecule_preprocessing.join(
+    self=mp,
+    path="/home/jovyan/storage/Machine_Learning/RNA_Selected_IDs_ensemble/*.csv",
+    molecule="RNA",
+)
+df = molecule_preprocessing.subset(
+    self=mp,
+    path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv",
+    features=features,
+    molecule="RNA",
+)
+df.to_csv("Selected_features_all_RNA_data_TCGA_6_4_21.csv")
+X, y = molecule_preprocessing.DNN_preprocessing(mp, df)
+X, y = molecule_preprocessing.balance(mp, X, y)
+
+
+# In[478]:
+
+
+class Classifier:
+    def build_calssifier(self):
         pass
 
-mp = molecule_preprocessing(path = "/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv")
+    def split(self):
+        pass
+
+    def fit_clf(self):
+        pass
+
+    def visualize(self):
+        pass
+
+
+# In[537]:
+
+
+df = molecule_preprocessing.subset(
+    self=mp,
+    path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv",
+    features=features,
+    molecule="RNA",
+)
+df.to_csv("Selected_features_all_RNA_data_TCGA_6_4_21.csv")
+X, y = molecule_preprocessing.DNN_preprocessing(mp, df)
+X, y = molecule_preprocessing.balance(mp, X, y)
+
+
+# In[541]:
+
+
+from numpy import loadtxt
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from xgboost import XGBClassifier
+
+X.astype("float16").dtypes
+seed = 19  # love you bubba
+test_size = 0.33
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=test_size, random_state=seed
+)
+
+
+# In[542]:
+
+
+model = XGBClassifier()
+model.fit(X_train, y_train.ravel())
+
+
+# In[545]:
+
+
+X.astype("float16").dtypes
+
+
+# In[549]:
+
+
+X = X.astype(int)
+X.dtypes
+
+
+# In[551]:
+
+
+seed = 19  # love you bubba
+test_size = 0.33
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=test_size, random_state=seed
+)
+model = XGBClassifier(n_jobs=30)
+model.fit(X_train, y_train.ravel())
+
+
+# In[552]:
+
+
+# make predictions for test data
+y_pred = model.predict(X_test)
+predictions = [round(value) for value in y_pred]
+# evaluate predictions
+accuracy = accuracy_score(y_test, predictions)
+print("Accuracy: %.2f%%" % (accuracy * 100.0))
+
+
+# In[ ]:
+
+
+"the default evaluation metric used with the objective 'multi:softprob' was changed from 'merror' to 'mlogloss'""
+
+
+# In[564]:
+
+
+# Plot non-normalized confusion matrix
+from sklearn.metrics import (
+    classification_report,
+    plot_confusion_matrix,
+    plot_det_curve,
+    plot_roc_curve,
+)
+
+titles_options = [
+    ("Confusion matrix, without normalization", None),
+    ("Normalized confusion matrix", "true"),
+]
+for title, normalize in titles_options:
+    disp = plot_confusion_matrix(
+        model, X_test, y_test, cmap=plt.cm.Blues, normalize=normalize
+    )
+    disp.ax_.set_title(title)
+
+    print(title)
+    print(disp.confusion_matrix)
+
+plt.show()
+
+
+# In[566]:
+
+
+# Do DNA
+
+
+# In[ ]:
+
+
+mp = molecule_preprocessing(
+    path="/home/jovyan/storage/UCSC_Xena/somatic_variation/UCSC_TCGA_mutations/*.gz"
+)
+#df = molecule_preprocessing.build_input(self =mp, path="/home/jovyan/storage/UCSC_Xena/somatic_variation/UCSC_TCGA_mutations/*.gz",start=0,end=405,molecule="DNA")
+#CV = feature_selection.grade_features(df)
 fs = feature_selection(mp)
-df = grade_all(path = "/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv", molecule ="RNA")
+df = grade_all(path="/home/jovyan/storage/UCSC_Xena/somatic_variation/UCSC_TCGA_mutations/*.gz", molecule="DNA")
 
 
 
-
-
-
+mp = molecule_preprocessing(
+    path="/home/jovyan/storage/Machine_Learning/RNA_Selected_IDs_ensemble/"
+)
+features = molecule_preprocessing.join(
+    self=mp,
+    path="/home/jovyan/storage/Machine_Learning/RNA_Selected_IDs_ensemble/*.csv",
+    molecule="RNA",
+)
+df = molecule_preprocessing.subset(
+    self=mp,
+    path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv",
+    features=features,
+    molecule="RNA",
+)
+df.to_csv("Selected_features_all_RNA_data_TCGA_6_4_21.csv")
+X, y = molecule_preprocessing.DNN_preprocessing(mp, df)
+X, y = molecule_preprocessing.balance(mp, X, y)
 
