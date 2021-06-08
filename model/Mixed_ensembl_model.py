@@ -37,7 +37,7 @@ from tensorflow.keras import Sequential, backend, layers
 from tensorflow.keras.layers import Dense, Dropout
 
 
-# In[605]:
+# In[654]:
 
 
 # make classes that expect an input of certain input For DNA, RNA, and methylation
@@ -111,7 +111,8 @@ class molecule_preprocessing:
                 .set_index("sample")
                 .T
             )
-            df = df.drop("sample", axis=1)
+            if "sample" in df.columns:
+                df = df.drop("sample", axis=1)
 
         if molecule == "methylation":
             sampleIDs = pd.read_table(
@@ -285,19 +286,26 @@ class molecule_preprocessing:
         tic_all = time.perf_counter()
         for file in glob.glob(path):
             print(file)
-            df = pd.read_table(file, delimiter=",")
-            df = df[df["Ensembl"].isin(features)]
+            if molecule == "RNA":
+                df = pd.read_table(file, delimiter=",")
+                df = df[df["Ensembl"].isin(features)]
+            if molecule == "DNA":
+                df = pd.read_table(file,delimiter="\t",compression="gzip")
+                df = df[df["sample"].isin(features)]
             df = df.T
             names = df.iloc[0]
             cancer_type = molecule_preprocessing.CT(self, file, molecule)
             df = molecule_preprocessing.labeler(self, df, cancer_type, molecule)
-            print(df.shape)
             selected.append(df)
         df_block = pd.concat(selected, ignore_index=True)
+        print(df_block.shape)
         df_block = df_block.fillna(0)
         df_block = df_block[df_block.labels != "remove"]
         print(df_block.shape)
-        column_indices = range(4707)
+        if molecule == "RNA":
+            column_indices = range(4707)
+        if molecule == "DNA":
+            column_indices = range(4802)
         new_names = names
         old_names = df_block.columns[column_indices]
         df_block.rename(columns=dict(zip(old_names, new_names)), inplace=True)
@@ -307,7 +315,8 @@ class molecule_preprocessing:
         return df_block
 
     def DNN_preprocessing(self, X):
-
+        y = X["cancerType"]
+        print(y.value_counts())
         # if the file has rowIDs, we can drop these
         if "Composite Element REF" in X.columns:
             X = X.drop("Composite Element REF", axis=1)
@@ -326,7 +335,6 @@ class molecule_preprocessing:
         # substring the TCGA- out of the column
         # get rid of TCGA- in cancer type
         X["cancerType"] = X["cancerType"].str[5:]
-        y = X["cancerType"]
         X = X.drop("cancerType", axis=1)
         X = pd.get_dummies(X, columns=["labels"])
         return X, y
@@ -358,7 +366,7 @@ class molecule_preprocessing:
         return X, y
 
 
-# In[606]:
+# In[655]:
 
 
 # Correlation
@@ -582,13 +590,6 @@ def grade_all(path, molecule):
     pass
 
 
-df = test.build_input(
-    path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv",
-    start=0,
-    end=604,
-    molecule="RNA",
-)
-CV = feature_selection.grade_features(df)
 mp = molecule_preprocessing(path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv")
 fs = feature_selection(mp)
 df = grade_all(path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv", molecule="RNA")
@@ -701,12 +702,6 @@ accuracy = accuracy_score(y_test, predictions)
 print("Accuracy: %.2f%%" % (accuracy * 100.0))
 
 
-# In[ ]:
-
-
-"the default evaluation metric used with the objective 'multi:softprob' was changed from 'merror' to 'mlogloss'""
-
-
 # In[564]:
 
 
@@ -740,42 +735,112 @@ plt.show()
 # Do DNA
 
 
-# In[ ]:
+# In[615]:
 
 
 mp = molecule_preprocessing(
     path="/home/jovyan/storage/UCSC_Xena/somatic_variation/UCSC_TCGA_mutations/*.gz"
 )
-#df = molecule_preprocessing.build_input(self =mp, path="/home/jovyan/storage/UCSC_Xena/somatic_variation/UCSC_TCGA_mutations/*.gz",start=0,end=405,molecule="DNA")
-#CV = feature_selection.grade_features(df)
+# df = molecule_preprocessing.build_input(self =mp, path="/home/jovyan/storage/UCSC_Xena/somatic_variation/UCSC_TCGA_mutations/*.gz",start=0,end=405,molecule="DNA")
+# CV = feature_selection.grade_features(df)
 fs = feature_selection(mp)
-df = grade_all(path="/home/jovyan/storage/UCSC_Xena/somatic_variation/UCSC_TCGA_mutations/*.gz", molecule="DNA")
+df = grade_all(
+    path="/home/jovyan/storage/UCSC_Xena/somatic_variation/UCSC_TCGA_mutations/*.gz",
+    molecule="DNA",
+)
 
 
 # In[ ]:
 
 
+# https://keras.io/guides/functional_api/#setup
 
 
-
-# In[ ]:
+# In[650]:
 
 
 mp = molecule_preprocessing(
-    path="/home/jovyan/storage/Machine_Learning/RNA_Selected_IDs_ensemble/"
+    path="/home/jovyan/storage/Machine_Learning/DNA_Selected_IDs_ensemble/"
 )
 features = molecule_preprocessing.join(
     self=mp,
-    path="/home/jovyan/storage/Machine_Learning/RNA_Selected_IDs_ensemble/*.csv",
-    molecule="RNA",
+    path="/home/jovyan/storage/Machine_Learning/DNA_Selected_IDs_ensemble/*.csv",
+    molecule="DNA",
 )
 df = molecule_preprocessing.subset(
     self=mp,
-    path="/home/jovyan/CSBL_shared/RNASeq/TCGA/counts/*.csv",
+    path="/home/jovyan/storage/UCSC_Xena/somatic_variation/UCSC_TCGA_mutations/*.gz",
     features=features,
-    molecule="RNA",
+    molecule="DNA",
 )
-df.to_csv("Selected_features_all_RNA_data_TCGA_6_4_21.csv")
+df.to_csv("Selected_features_all_DNA_data_TCGA_6_7_21.csv")
+
+
+# In[651]:
+
+
+df
+
+
+# In[660]:
+
+
+mp = molecule_preprocessing(
+    path="/home/jovyan/storage/Machine_Learning/DNA_Selected_IDs_ensemble/"
+)
 X, y = molecule_preprocessing.DNN_preprocessing(mp, df)
 X, y = molecule_preprocessing.balance(mp, X, y)
+
+
+# In[661]:
+
+
+from numpy import loadtxt
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from xgboost import XGBClassifier
+
+X.astype(int).dtypes
+seed = 19  # love you bubba
+test_size = 0.33
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=test_size, random_state=seed
+)
+model = XGBClassifier()
+model.fit(X_train, y_train.ravel())
+# make predictions for test data
+y_pred = model.predict(X_test)
+predictions = [round(value) for value in y_pred]
+# evaluate predictions
+accuracy = accuracy_score(y_test, predictions)
+print("Accuracy: %.2f%%" % (accuracy * 100.0))
+# Plot non-normalized confusion matrix
+from sklearn.metrics import (
+    classification_report,
+    plot_confusion_matrix,
+    plot_det_curve,
+    plot_roc_curve,
+)
+
+titles_options = [
+    ("Confusion matrix, without normalization", None),
+    ("Normalized confusion matrix", "true"),
+]
+for title, normalize in titles_options:
+    disp = plot_confusion_matrix(
+        model, X_test, y_test, cmap=plt.cm.Blues, normalize=normalize
+    )
+    disp.ax_.set_title(title)
+
+    print(title)
+    print(disp.confusion_matrix)
+
+plt.show()
+
+
+# In[ ]:
+
+
+save_model()
+
 
