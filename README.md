@@ -13,7 +13,7 @@ differentiating  tumor class.
 
 **Docker Installation**
 #### Not active yet TODO:
-The docker image for this project can be pulled from the online Docker Hub [repository](https://hub.docker.com/r/mskaro1/metNet) 
+The docker image for this project can be pulled from the online Docker Hub [incomplete build] 
 or can be built using the Dockerfile included in the base directory of this project.
 To pull the image from the Docker Hub repo, run the following command:
 ```
@@ -70,7 +70,7 @@ data or normalized beta values.
     
 The `-h` flag to understand all available options. 
 
-Additionally, each component of the pipeline can be called individually from the command line. For more information read our [wiki](https://github.com/michaelSkaro/metNet/wiki) for a breakdown of each script's role in the pipeleine.
+Additionally, each component of the pipeline can be called individually from the command line. 
 
 **Note:** For those seeking to use the docker image to interact with our framework, run the following command to gain access to the shell of the docker image:
 ```
